@@ -1,33 +1,47 @@
+
 # langchain: https://python.langchain.com/
 from dataclasses import dataclass
 import streamlit as st
 from speech_recognition.openai_whisper import save_wav_file, transcribe
 from audio_recorder_streamlit import audio_recorder
-from langchain.callbacks import get_openai_callback
-from langchain.chat_models import ChatOpenAI
+from langchain_community.callbacks.manager import get_openai_callback
+# from langchain.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import RetrievalQA, ConversationChain
 from langchain.prompts.prompt import PromptTemplate
 from prompts.prompts import templates
 from typing import Literal
-from aws.synthesize_speech import synthesize_speech
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.vectorstores import FAISS
+# from aws.synthesize_speech import synthesize_speech
+# from langchain.embeddings import OpenAIEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
+embeddings_model_name = "sentence-transformers/all-MiniLM-L6-v2"
+
+# from langchain.vectorstores import FAISS
+from langchain_community.vectorstores import FAISS
 from langchain.text_splitter import NLTKTextSplitter
 from PyPDF2 import PdfReader
 from prompts.prompt_selector import prompt_sector
 from streamlit_lottie import st_lottie
 import json
-from IPython.display import Audio
+# from IPython.display import Audio
 import nltk
 
+from pages.textgen import TextGen
+hyperparams = {
+    'temperature': 0.3,
+    'top_p': 0.9,
+    'top_k': 50,
+    'max_tokens': 150,
+    'repetition_penalty': 1.2
+}
+
+model_url = 'https://beside-arrested-queensland-drum.trycloudflare.com'
 
 def load_lottiefile(filepath: str):
     with open(filepath, "r") as f:
         return json.load(f)
 st_lottie(load_lottiefile("images/welcome.json"), speed=1, reverse=False, loop=True, quality="high", height=300)
 
-#st.markdown("""solutions to potential errors:""")
 with st.expander("""Why did I encounter errors when I tried to talk to the AI Interviewer?"""):
     st.write("""This is because the app failed to record. Make sure that your microphone is connected and that you have given permission to the browser to access your microphone.""")
 with st.expander("""Why did I encounter errors when I tried to upload my resume?"""):
@@ -36,11 +50,9 @@ with st.expander("""Why did I encounter errors when I tried to upload my resume?
     """)
 
 st.markdown("""\n""")
-position = st.selectbox("Select the position you are applying for", ["Data Analyst", "Software Engineer", "Marketing"])
+position = st.selectbox("Select the position you are applying for", ["Data Scientist", "Software Engineer", "Marketing"])
 resume = st.file_uploader("Upload your resume", type=["pdf"])
 auto_play = st.checkbox("Let AI interviewer speak! (Please don't switch during the interview)")
-
-#st.toast("4097 tokens is roughly equivalent to around 800 to 1000 words or 3 minutes of speech. Please keep your answer within this limit.")
 
 @dataclass
 class Message:
@@ -59,7 +71,7 @@ def save_vector(resume):
     text_splitter = NLTKTextSplitter()
     texts = text_splitter.split_text(text)
 
-    embeddings = OpenAIEmbeddings()
+    embeddings = HuggingFaceEmbeddings(model_name=embeddings_model_name)
     docsearch = FAISS.from_texts(texts, embeddings)
     return docsearch
 
@@ -85,37 +97,27 @@ def initialize_session_state_resume():
         st.session_state.resume_memory = ConversationBufferMemory(human_prefix = "Candidate: ", ai_prefix = "Interviewer")
     # guideline for resume screen
     if "resume_guideline" not in st.session_state:
-        llm = ChatOpenAI(
-        model_name = "gpt-3.5-turbo",
-        temperature = 0.5,)
-
+        llm = TextGen(model_url=model_url,**hyperparams)
         st.session_state.resume_guideline = RetrievalQA.from_chain_type(
             llm=llm,
             chain_type_kwargs=st.session_state.chain_type_kwargs, chain_type='stuff',
             retriever=st.session_state.retriever, memory = st.session_state.resume_memory).run("Create an interview guideline and prepare only two questions for each topic. Make sure the questions tests the knowledge")
     # llm chain for resume screen
     if "resume_screen" not in st.session_state:
-        llm = ChatOpenAI(
-            model_name="gpt-3.5-turbo",
-            temperature=0.7, )
-
+        llm = TextGen(model_url=model_url,**hyperparams)
         PROMPT = PromptTemplate(
             input_variables=["history", "input"],
-            template= """I want you to act as an interviewer strictly following the guideline in the current conversation.
-            
-            Ask me questions and wait for my answers like a human. Do not write explanations.
-            Candidate has no assess to the guideline.
-            Only ask one question at a time. 
-            Do ask follow-up questions if you think it's necessary.
-            Do not ask the same question.
-            Do not repeat the question.
-            Candidate has no assess to the guideline.
-            You name is GPTInterviewer.
-            I want you to only reply as an interviewer.
-            Do not write all the conversation at once.
-            Candiate has no assess to the guideline.
-            
-            Current Conversation:
+            template= """### Instruction:
+                Act as an interviewer named GPTInterviewer.
+
+                ### Context:
+                You will follow a strict guideline during this conversation. The candidate does not have access to the guideline. 
+                Your task is to conduct the interview by asking questions one at a time, waiting for the candidate's answers, and asking necessary follow-up questions. 
+                Ensure that you do not repeat or rephrase the same questions. Respond only as an interviewer without providing explanations.
+
+                ### Example:
+                Interviewer: What inspired you to pursue this career path?
+
             {history}
             
             Candidate: {input}
@@ -123,9 +125,7 @@ def initialize_session_state_resume():
         st.session_state.resume_screen =  ConversationChain(prompt=PROMPT, llm = llm, memory = st.session_state.resume_memory)
     # llm chain for generating feedback
     if "resume_feedback" not in st.session_state:
-        llm = ChatOpenAI(
-            model_name="gpt-3.5-turbo",
-            temperature=0.5,)
+        llm = TextGen(model_url=model_url,**hyperparams)
         st.session_state.resume_feedback = ConversationChain(
             prompt=PromptTemplate(input_variables=["history","input"], template=templates.feedback_template),
             llm=llm,
@@ -150,19 +150,14 @@ def answer_call_back():
         )
         # OpenAI answer and save to history
         llm_answer = st.session_state.resume_screen.run(input)
-        # speech synthesis and speak out
-        audio_file_path = synthesize_speech(llm_answer)
-        # create audio widget with autoplay
-        audio_widget = Audio(audio_file_path, autoplay=True)
-        # save audio data to history
         st.session_state.resume_history.append(
             Message("ai", llm_answer)
         )
         st.session_state.token_count += cb.total_tokens
-        return audio_widget
+        return llm_answer
 
 if position and resume:
-    # intialize session state
+    # initialize session state
     initialize_session_state_resume()
     credit_card_placeholder = st.empty()
     col1, col2 = st.columns(2)
@@ -172,12 +167,12 @@ if position and resume:
         guideline = st.button("Show me interview guideline!")
     chat_placeholder = st.container()
     answer_placeholder = st.container()
-    audio = None
-    # if submit email adress, get interview feedback imediately
+    # audio = None
+    # if submit email address, get interview feedback immediately
     if guideline:
         st.markdown(st.session_state.resume_guideline)
     if feedback:
-        evaluation = st.session_state.resume_feedback.run("please give evalution regarding the interview")
+        evaluation = st.session_state.resume_feedback.run("please give evaluation regarding the interview")
         st.markdown(evaluation)
         st.download_button(label="Download Interview Feedback", data=evaluation, file_name="interview_feedback.txt")
         st.stop()
@@ -186,20 +181,20 @@ if position and resume:
             voice: bool = st.checkbox("I would like to speak with AI Interviewer!")
             if voice:
                 answer = audio_recorder(pause_threshold=2, sample_rate=44100)
-                #st.warning("An UnboundLocalError will occur if the microphone fails to record.")
+                # st.warning("An UnboundLocalError will occur if the microphone fails to record.")
             else:
                 answer = st.chat_input("Your answer")
             if answer:
                 st.session_state['answer'] = answer
-                audio = answer_call_back()
+                answer_call_back()
 
         with chat_placeholder:
             for answer in st.session_state.resume_history:
                 if answer.origin == 'ai':
-                    if auto_play and audio:
+                    if auto_play:
                         with st.chat_message("assistant"):
                             st.write(answer.message)
-                            st.write(audio)
+                            # st.write(audio)
                     else:
                         with st.chat_message("assistant"):
                             st.write(answer.message)
@@ -209,4 +204,3 @@ if position and resume:
 
         credit_card_placeholder.caption(f"""
                         Progress: {int(len(st.session_state.resume_history) / 30 * 100)}% completed.""")
-

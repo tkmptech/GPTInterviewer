@@ -17,7 +17,7 @@ from prompts.prompts import templates
 # Audio
 from speech_recognition.openai_whisper import save_wav_file, transcribe
 from audio_recorder_streamlit import audio_recorder
-from aws.synthesize_speech import synthesize_speech
+# from aws.synthesize_speech import synthesize_speech
 from IPython.display import Audio
 
 def load_lottiefile(filepath: str):

@@ -15,22 +15,13 @@ if lan == "English":
     with st.sidebar:
         st.markdown('AI Interviewer - V0.1.2')
         st.markdown(""" 
-        #### Let's contact:
-        [Haoxiang Jia](https://www.linkedin.com/in/haoxiang-jia/)
-        
-        [Zicheng Wang](https://www.linkedin.com/in/todd-wang-5001aa264/)
-        #### Please fill the form, we'd love to have your feedback:
-        [Feedback Form](https://docs.google.com/forms/d/13f4q03bk4lD7sKR7qZ8UM1lQDo6NhRaAKv7uIeXHEaQ/edit)
     
         #### Powered by
-    
-        [OpenAI](https://openai.com/)
-    
+        
         [FAISS](https://github.com/facebookresearch/faiss)
     
         [Langchain](https://github.com/hwchase17/langchain)
-    
-                    """)
+        """)
     st.markdown(
         "<style>#MainMenu{visibility:hidden;}</style>",
         unsafe_allow_html=True
@@ -38,17 +29,16 @@ if lan == "English":
     st.image(im, width=100)
     st.markdown(f"""# {home_title} <span style=color:#2E9BF5><font size=5>Beta</font></span>""",unsafe_allow_html=True)
     st.markdown("""\n""")
-    #st.markdown("#### Greetings")
     st.markdown("Welcome to AI Interviewer! 👏 AI Interviewer is your personal interviewer powered by generative AI that conducts mock interviews."
                 "You can upload your resume and enter job descriptions, and AI Interviewer will ask you customized questions. Additionally, you can configure your own Interviewer!")
     st.markdown("""\n""")
-    with st.expander("Updates"):
-        st.write("""
-        08/13/2023
-        - Fix the error that occurs when the user input fails to be recorded. """)
-    with st.expander("What's coming next?"):
-        st.write("""
-        Improved voice interaction for a seamless experience. """)
+    # with st.expander("Updates"):
+    #     st.write("""
+    #     08/13/2023
+    #     - Fix the error that occurs when the user input fails to be recorded. """)
+    # with st.expander("What's coming next?"):
+    #     st.write("""
+    #     Improved voice interaction for a seamless experience. """)
     st.markdown("""\n""")
     st.markdown("#### Get started!")
     st.markdown("Select one of the following screens to start your interview!")

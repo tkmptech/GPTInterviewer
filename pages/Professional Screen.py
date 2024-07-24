@@ -17,7 +17,7 @@ from prompts.prompts import templates
 # Audio
 from speech_recognition.openai_whisper import save_wav_file, transcribe
 from audio_recorder_streamlit import audio_recorder
-from aws.synthesize_speech import synthesize_speech
+# from aws.synthesize_speech import synthesize_speech
 from IPython.display import Audio
 
 
@@ -182,7 +182,7 @@ if jd:
                 answer = st.chat_input("Your answer")
             if answer:
                 st.session_state['answer'] = answer
-                audio = answer_call_back()
+                # audio = answer_call_back()
         with chat_placeholder:
             for answer in st.session_state.jd_history:
                 if answer.origin == 'ai':
